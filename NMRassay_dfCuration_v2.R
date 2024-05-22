@@ -78,7 +78,7 @@ for (each in 1:nrow(t_calcConcData)) { #5327
       NOconc = NA,
       NORNconc = NA)    )
   }
- # print(paste(t_calcConcData$SampleID[each], "extracted: ", extracted_digits)) # Print the result. 
+# print(paste(t_calcConcData$SampleID[each], "extracted: ", extracted_digits)) # Print the result. 
 }
 # Remove duplicates by keeping the first occurrence of each set of duplicates in the data frame, and remove the subsequent ones.
 t_allSamplesMetabolites <- t_allSamplesMetabolites[!duplicated(t_allSamplesMetabolites), ]
@@ -167,7 +167,8 @@ for (s in 1:nrow(t_allSamplesMetabolites)) {
 } #### use t_allSamplesMetabolites for curated nicotine metabolite dataset ###
 
 t_allSamples <- t_allSamplesMetabolites # n=824 #instantiate master data frame with metabolic data as base architecture
-#be sure to include non-smoker controls that have NMR=0, set to 0 from na so not excluded in join methods
+
+# List of all control (non-smoker) samples
 control_samples <- c("103006", "102041", "102167", "103672", "202748",
                     "202056", "202808", "303153", "102155", "202348",
                     "203304", "202542", "202642", "302971", "202699",
@@ -175,6 +176,8 @@ control_samples <- c("103006", "102041", "102167", "103672", "202748",
                     "202870", "302063", "202978", "303527", "302648",
                     "303139", "303151", "103696", "303127", "303013"
                     )
+
+# Recode NAs for control sample measurements to 0
 for (ctr in control_samples){
   t_allSamples[t_allSamples$idNo==ctr, "NMRcalc"] <- as.numeric(0)
 }
@@ -196,51 +199,28 @@ t_allSamples["BMIcalc"] <- ""
 t_allSamples["BMIcategory"] <- ""
 t_allSamples["b_isControl"] <- ""
 t_allSamples["NMR_category"] <- ""
+
 ## "b_isControl"
+###############################################################
 t_allSamples <- t_allSamples  %>% 
-                  mutate()
-t_allSamples[t_allSamples$idNo=="103006","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="102041","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="102167","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="103672","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="202748","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="202056","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="202808","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="303153","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="102155","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="202348","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="203304","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="202542","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="202642","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="302971","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="202699","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="102507","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="102192","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="303222","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="102565","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="103388","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="202870","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="302063","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="202978","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="303527","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="302648","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="303139","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="303151","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="103696","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="303127","b_isControl"] <- as.numeric(1) 
-t_allSamples[t_allSamples$idNo=="303013","b_isControl"] <- as.numeric(1) 
+                  mutate(b_isControl = elseif(idNo==control_samples, 1, 0))
+
 ## BMI variables: "BMIcalc" and "BMIcategory"
 ## According to CDC, BMI = weight [kg] / (height [m])^2 *10000[cm/m]
+# Function to calculate BMI
 calculate_bmi <- function(weight_kg, height_cm) {
   bmi <- weight_kg / (height_cm^2)*10000 # Calculate BMI
   return(bmi) # Return the result
 }
+
+# Calculate BMI for all samples
 for (s in 1:nrow(t_allSamples)) {
   this_height_cm <- t_allSamples[s,"EX2_7"]
   this_weight_kg <- t_allSamples[s,"EX2_8"]
   calcBMI <- calculate_bmi(this_weight_kg,this_height_cm)
   t_allSamples[s,"BMIcalc"]= as.numeric(calcBMI)
 }
+# Categorize continuous BMI values
 for (s in 1:nrow(t_allSamples)) {
   this_BMI <- t_allSamples[s,"BMIcalc"]
   if (is.na(this_BMI)) next
@@ -249,8 +229,24 @@ for (s in 1:nrow(t_allSamples)) {
   else if (this_BMI >= 30.0 ) { t_allSamples[s,"BMIcategory"] <- "Obese"}
   else {print("Error fitting BMI into categories")}
 }
+
 #"b_SmokerStatus"
+###############################################################
 ## Determining smoker status per logic table made upon consensus (w/ KF, CS)
+t_allSamples <- t_allSamples  %>% 
+                  mutate(selfDeclaredSmoker = INT22_4,
+                        cpd = INT22_5,
+                        b_SmokerStatus = case_when(
+                          is.na(selfDeclaredSmoker) & is.na(cpd) ~ "exclude",
+                          is.na(selfDeclaredSmoker) & cpd > 0 ~ "Smoker",
+                          is.na(selfDeclaredSmoker) & cpd == 0 ~ "Non-smoker",
+                          selfDeclaredSmoker==1 ~ "Smoker",
+                          selfDeclaredSmoker==2 & is.na(cpd) ~ "Non-smoker",
+                          selfDeclaredSmoker==2 & cpd == 0 ~ "Non-smoker",
+                          selfDeclaredSmoker==2 & cpd == 99 ~ "Non-smoker",
+                          selfDeclaredSmoker==2 & cpd > 0 ~ "Smoker"
+                        ))
+
 for (s in 1:nrow(t_allSamples)) {
   this_selfDeclared_smokerStatus <- t_allSamples[s,"INT22_4"]
   this_CPD <- t_allSamples[s,"INT22_5"]
@@ -272,6 +268,7 @@ for (s in 1:nrow(t_allSamples)) {
   }
 }
 ## Age variables: "AgeAtPhase2" and "AgeCategory
+###############################################################
 ## "AgeAtPhase2": calculated age from Birthday INT2_3 (MMDDYY format) to survey exam date (Phase 2) (for calculating age on the day plasma drawn)
 ex_NAage <- data.frame()
 for (s in 1:nrow(t_allSamples)) {
@@ -280,7 +277,7 @@ for (s in 1:nrow(t_allSamples)) {
   if (is.na(this_examDate)) {ex_NAage <- rbind(ex_NAage,s)}
   else {
     yrs_delta <- abs(interval(this_birthday,this_examDate)/years(1)) #uses lubridate package to calculate time interval in years
-    t_allSamples[s,"AgeAtPhase2"] <- as.double(yrs_delta)
+    t_allSamples[s,"AgeAtPhase2"] <- round(as.double(yrs_delta), digits = 2)
   }
 }
 ##"AgeCategory": defined younger or older stratifications compared to overall average age
@@ -296,6 +293,7 @@ for (s in 1:nrow(t_allSamples)) {
   else t_allSamples[s,"AgeCategory"] <- "Older"
 }
 ## "b_Gender"
+###############################################################
 ## from phase 1 survey, gender (1=male, 2=female) is "INT2_1"
 ex_NAgender <- data.frame()
 for (s in 1:nrow(t_allSamples)) {
