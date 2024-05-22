@@ -168,36 +168,16 @@ for (s in 1:nrow(t_allSamplesMetabolites)) {
 
 t_allSamples <- t_allSamplesMetabolites # n=824 #instantiate master data frame with metabolic data as base architecture
 #be sure to include non-smoker controls that have NMR=0, set to 0 from na so not excluded in join methods
-t_allSamples[t_allSamples$idNo=="103006","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="102041","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="102167","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="103672","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="202748","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="202056","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="202808","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="303153","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="102155","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="202348","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="203304","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="202542","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="202642","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="302971","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="202699","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="102507","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="102192","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="303222","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="102565","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="103388","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="202870","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="302063","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="202978","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="303527","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="302648","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="303139","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="303151","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="103696","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="303127","NMRcalc"] <- as.numeric(0) 
-t_allSamples[t_allSamples$idNo=="303013","NMRcalc"] <- as.numeric(0) 
+control_samples <- c("103006", "102041", "102167", "103672", "202748",
+                    "202056", "202808", "303153", "102155", "202348",
+                    "203304", "202542", "202642", "302971", "202699",
+                    "102507", "102192", "303222", "102565", "103388",
+                    "202870", "302063", "202978", "303527", "302648",
+                    "303139", "303151", "103696", "303127", "303013"
+                    )
+for (ctr in control_samples){
+  t_allSamples[t_allSamples$idNo==ctr, "NMRcalc"] <- as.numeric(0)
+}
 
 ##########       Join Data Sets       ##########
 # Join subsetted raw survey data as columns to sample ID rows
@@ -217,6 +197,8 @@ t_allSamples["BMIcategory"] <- ""
 t_allSamples["b_isControl"] <- ""
 t_allSamples["NMR_category"] <- ""
 ## "b_isControl"
+t_allSamples <- t_allSamples  %>% 
+                  mutate()
 t_allSamples[t_allSamples$idNo=="103006","b_isControl"] <- as.numeric(1) 
 t_allSamples[t_allSamples$idNo=="102041","b_isControl"] <- as.numeric(1) 
 t_allSamples[t_allSamples$idNo=="102167","b_isControl"] <- as.numeric(1) 
