@@ -69,7 +69,7 @@ for (each in 1:nrow(t_calcConcData)) { #5327
   else {                      
     t_allSamplesMetabolites <- rbind(t_allSamplesMetabolites, list(
       idNo = as.numeric(extracted_digits),
-      ExpSet = NA,  
+      ExpSet = NA,
       NMRcalc = NA,
       COTconc = NA,
       tHCconc = NA,
@@ -193,8 +193,6 @@ t_allSamples <- left_join(t_allSamples, t_ph1and2_rawSmokingSurveyData, by = c("
 # add supplementary columns for inferred data, interpreted using data dictionaries (Supplementary 1)
 t_allSamples["b_SmokerStatus"] <- ""
 t_allSamples["b_Gender"] <- ""
-t_allSamples["AgeAtPhase2"] <-""
-t_allSamples["AgeCategory"] <- ""
 t_allSamples["BMIcalc"] <- ""
 t_allSamples["BMIcategory"] <- ""
 t_allSamples["b_isControl"] <- ""
@@ -267,31 +265,7 @@ for (s in 1:nrow(t_allSamples)) {
     } else {t_allSamples[s,"b_SmokerStatus"] <- "Non-smoker"} #this_CPD == 0, this_CPD == 99, ,  this_CPYr=="Never"
   }
 }
-## Age variables: "AgeAtPhase2" and "AgeCategory
-###############################################################
-## "AgeAtPhase2": calculated age from Birthday INT2_3 (MMDDYY format) to survey exam date (Phase 2) (for calculating age on the day plasma drawn)
-ex_NAage <- data.frame()
-for (s in 1:nrow(t_allSamples)) {
-  this_examDate <- t_allSamples[s,"S2EXDATE.x"]
-  this_birthday <- t_allSamples[s, "INT2_3"]
-  if (is.na(this_examDate)) {ex_NAage <- rbind(ex_NAage,s)}
-  else {
-    yrs_delta <- abs(interval(this_birthday,this_examDate)/years(1)) #uses lubridate package to calculate time interval in years
-    t_allSamples[s,"AgeAtPhase2"] <- round(as.double(yrs_delta), digits = 2)
-  }
-}
-##"AgeCategory": defined younger or older stratifications compared to overall average age
-mean_age <- mean(as.double(t_allSamples$AgeAtPhase2), na.rm=TRUE)
-for (s in 1:nrow(t_allSamples)) {
-  this_age <- as.double(t_allSamples[s,"AgeAtPhase2"])
-  this_ageBoolean <- (this_age <= mean_age)
-  if (is.na(this_age)) {ex_NAage <- rbind(ex_NAage,s)} ## this doesn't make sense
-  else if (this_ageBoolean == TRUE) {
-    print(this_age)
-    t_allSamples[s,"AgeCategory"] <- "Younger"
-    }
-  else t_allSamples[s,"AgeCategory"] <- "Older"
-}
+
 ## "b_Gender"
 ###############################################################
 ## from phase 1 survey, gender (1=male, 2=female) is "INT2_1"
@@ -345,15 +319,10 @@ excluded_nonSmokers_wNMR <- subset(sub_nonSmokers, (sub_nonSmokers$logNMR<0)) ##
 sub_smokers_naCPD <- subset(sub_smokers,is.na(sub_smokers$INT22_5)) # 13 found, not excluding for now
 
 # Specified Exclusions Made
+sample_exclusions <- c("202642", "202699", "103154", "103554"
+                        "2720", "3348", "3955", "5829")
 t_allSamples_postExclusions <- t_allSamples
-t_allSamples_postExclusions <- subset(t_allSamples_postExclusions, !(t_allSamples_postExclusions$idNo=="202642"))
-t_allSamples_postExclusions <- subset(t_allSamples_postExclusions, !(t_allSamples_postExclusions$idNo=="202699"))
-t_allSamples_postExclusions <- subset(t_allSamples_postExclusions, !(t_allSamples_postExclusions$idNo=="103154"))
-t_allSamples_postExclusions <- subset(t_allSamples_postExclusions, !(t_allSamples_postExclusions$idNo=="103554")) #824 filtered down to 820
-t_allSamples_postExclusions <- subset(t_allSamples_postExclusions, !(t_allSamples_postExclusions$idNo=="2720"))
-t_allSamples_postExclusions <- subset(t_allSamples_postExclusions, !(t_allSamples_postExclusions$idNo=="3348"))
-t_allSamples_postExclusions <- subset(t_allSamples_postExclusions, !(t_allSamples_postExclusions$idNo=="3955"))
-t_allSamples_postExclusions <- subset(t_allSamples_postExclusions, !(t_allSamples_postExclusions$idNo=="5829")) #down to 816 without BW controls
+t_allSamples_postExclusions <- t_allSamples_postExclusions[!t_allSamples_postExclusions$idNo %in% sample_exclusions,] 
 
 ##########       Output       ##########
 # Outputs: NMR dataframe, list of excluded ids for requesting more plasma to re-run,A list of excluded sample ids to request SHS for more plasma to re-run assay
@@ -364,11 +333,11 @@ print("Successfully output all excluded sample IDs list as listIDs_excludedSHSph
 # Output: A list of all combined results for all 824 samples; t_allSamples_postExclusions, file = "SHSph2_fullDF_05152024CRM.csv"
 write.csv(t_allSamples_postExclusions, file = "SHSph2_fullDF_05152024CRM.csv", row.names = TRUE)
 print("Successfully output t_allSamples_postExclusions as SHSph2_fullDF_05152024CRM.csv")
-# Output: A "clean" dataset for EWAS/GWAS; clean_df, file = "SHSph2_NMRwSurveyDF_clean05152024CRM.csv"
-cleanVars <- c("idNo","NMRcalc","logNMR","COTconc","tHCconc","NICconc",    # data from LC-MS and NMR calcs
-               "CENTER.y","S2EXDATE.x","S2SMOKE","S2SMKD","S2PPY",         # data from raw survey variables
-               "b_SmokerStatus","b_Gender","AgeAtPhase2","AgeCategory","BMIcalc","BMIcategory","b_isControl")          # interpreted data from survey, see logic in UML diagram (Supplementary Figure 2)
-clean_df <-t_allSamples_postExclusions[,cleanVars]
+# Output: A "clean" dataset for EWAS/GWAS; clean_df, file = "SHSph2_NMRwSurveyDF_clean05152024CRM.csv"        # interpreted data from survey, see logic in UML diagram (Supplementary Figure 2)
+clean_df <-t_allSamples_postExclusions  %>% 
+            dplyr::select(idNo, NMRcalc, logNMR, COTconc, tHCconc, NICconc,  # data from LC-MS and NMR calcs
+            CENTER.y, S2EXDATE.x, S2SMOKE, S2SMKD, S2PPY,b_SmokerStatus, # data from raw survey variables
+            b_Gender, BMI_calc, BMIcategory, b_isControl)
 write.csv(clean_df, file = "SHSph2_NMRwSurveyDF_clean05152024CRM.csv", row.names = TRUE)
 print("Successfully output clean_df as SHSph2_NMRwSurveyDF_clean05152024CRM.csv")
 # Output: just sampleIDs of 816 participants; clean_df$idNo, file = "SHSph2_IDs_clean05152024CRM.csv"
