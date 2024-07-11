@@ -54,7 +54,7 @@ SHSph1_age <- read_sas("shs677_elig.sas7bdat") # S1AGE
 ##########       File Output       ##########
 # Set variables that will be used to automate filename generation
 name_initials <- "KRF"
-today <- format(Sys.Date(), "%d%m%Y")
+today <- format(Sys.Date(), "%Y%m%d")
 # List of the base name for the output files
 outfiles <- c("listIDs_excludedSHSph2", "SHSph2_fullDF", 
               "SHSph2_NMRwSurveyDF_clean", "SHSph2_IDs_clean")
@@ -360,18 +360,18 @@ t_allSamples_postExclusions <- t_allSamples_postExclusions[!t_allSamples_postExc
 allExcluded_list <- anti_join(t_allSamples,t_allSamples_postExclusions,by = c("idNo" = "idNo")) # results in 8
 # TODO: join with samples on my rerun list .xlsx
 write.csv(allExcluded_list, file = excl_filename, row.names = TRUE)
-cat("Successfully output all excluded sample IDs list as: ", excl_filename)
-# Output: A list of all combined results for all 824 samples; t_allSamples_postExclusions, file = "SHSph2_fullDF_05152024CRM.csv"
+cat("Successfully output all excluded sample IDs list as: ", excl_filename, "\n")
+# Output: A list of all combined results for all 824 samples; t_allSamples_postExclusions, file = "SHSph2_fullDF"
 write.csv(t_allSamples_postExclusions, file = full_filename, row.names = TRUE)
-cat("Successfully output t_allSamples_postExclusions as: " full_filename)
-# Output: A "clean" dataset for EWAS/GWAS; clean_df, file = "SHSph2_NMRwSurveyDF_clean05152024CRM.csv"        # interpreted data from survey, see logic in UML diagram (Supplementary Figure 2)
+cat(paste0("Successfully output t_allSamples_postExclusions as: ", full_filename, "\n"))
+# Output: A "clean" dataset for EWAS/GWAS; clean_df, file = "SHSph2_NMRwSurveyDF_clean"        # interpreted data from survey, see logic in UML diagram (Supplementary Figure 2)
 clean_df <-t_allSamples_postExclusions  %>% 
             dplyr::select(idNo, NMRcalc, logNMR, COTconc, tHCconc, NICconc,  # data from LC-MS and NMR calcs
             CENTER.y, S2EXDATE, S2SMOKE, S2SMKD, S2PPY, b_SmokerStatus, # data from raw survey variables
             S2AGE, b_Gender, BMIcalc, BMIcategory, b_isControl)  %>% 
-            rename("CENTER.y" = "CENTER") # remove the '.y' for convenience
+            rename("CENTER" = "CENTER.y") # remove the '.y' for convenience
 write.csv(clean_df, file = clean_filename, row.names = TRUE)
-cat("Successfully output clean_df as: ", clean_filename)
-# Output: just sampleIDs of 816 participants; clean_df$idNo, file = "SHSph2_IDs_clean05152024CRM.csv"
+cat(paste0("Successfully output clean_df as: ", clean_filename, "\n"))
+# Output: just sampleIDs of 816 participants; clean_df$idNo, file = "SHSph2_IDs_clean"
 write.csv(clean_df$idNo, file = cleanIDs_filename, row.names = TRUE)
-cat("Successfully output sample IDs for clean_df as: ", cleanIDs_filename)
+cat(paste0("Successfully output sample IDs for clean_df as: ", cleanIDs_filename))
