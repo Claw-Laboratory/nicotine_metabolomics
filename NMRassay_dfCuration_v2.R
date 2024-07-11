@@ -20,30 +20,51 @@
 # 4) phase I survey results with associated data dictionary for interpretating age, gender, smoking histotry, height, weight                                                  ---> "phase1.xlsx"
 
 # OUTPUT FILES GENERATED: 
-# 1) A list of all combined results for all 824 samples; t_allSamples_postExclusions, file = "SHSph2_fullDF_05152024CRM.csv"
-# 2) A "clean" dataset with 18 variables for the final 816 participants to use for EWAS/GWAS; clean_df, file = "SHSph2_NMRwSurveyDF_clean05152024CRM.csv"
-# 3) A list of just sampleIDs of final 816 participants; clean_df$idNo, file = "SHSph2_IDs_clean05152024CRM.csv"
+# 1) A list of all the sampleIDs excluded from the final 816; allExcluded_list, file = "listIDs_excludedSHSph2"
+# 2) A list of all combined results for all 824 samples; t_allSamples_postExclusions, file = "SHSph2_fullDF"
+# 3) A "clean" dataset with 18 variables for the final 816 participants to use for EWAS/GWAS; clean_df, file = "SHSph2_NMRwSurveyDF_clean"
+# 4) A list of just sampleIDs of final 816 participants; clean_df$idNo, file = "SHSph2_IDs_clean"
 
 ##########       Setup       ##########
-setwd("/Users/musserc/NicotineMetabolomics_project")
+# Set working directory (the location with the necessary input files)
+setwd("/home/clawlab/Projects/SHS")
+
+# Install packages if not installed
 if(!"dplyr" %in% installed.packages()) install.packages("dplyr")
 if(!"lubridate" %in% installed.packages()) install.packages("lubridate")
 if(!"readr" %in% installed.packages()) install.packages("readr")
 if(!"stringr" %in% installed.packages()) install.packages("stringr")
-if(!"lubridate" %in% installed.packages()) install.packages("lubridate")
+if(!"haven" %in% installed.packages()) install.packages("haven")
+# Load libraries
 library(readr) # Used Tidyverse:readr library to read multiple raw data .csv files into a single data frame
 library(readxl) # Used Tidyverse:readxl library to raw survey data and data dictionary .xlsx files
 library(stringr) #Used the stringr package to extract the middle 4-6 integer values from a string using regular expressions in R
 library(dplyr) #removed duplicate rows from a data frame in R using the dplyr package, which provides the distinct function.
 library(lubridate) # Used to calculate date-formatted time deltas
+library(haven)
 
 ##########       File Input       ##########
 t_calcConcData <- read.csv("v6RawData_combined.csv", header=TRUE) #per 'SampID' grab 'Analyte', 'Valid', 'CalcConc',
 t_SHSph1_rawSurveyData  <- read_excel("phase1.xlsx") ## contains gender, birthdate, smoked >=100 in lifetime, ade started smoking, age stopped smoking, # years smoked
 t_SHSph2_rawSurveyData  <- read_excel("phase2.xlsx") ##date plasma drawn,smoked now, smoked within 4 hours
 t_ph1and2_rawSmokingSurveyData <- read_excel("smoking.xlsx") ## S1SMOKE, S1SMKD, S1PPY, S2SMOKE, S2SMKD, S2PPY
+SHSph1_age <- read_sas("shs677_elig.sas7bdat") # S1AGE
 # this is Teddy's script for survey df: #t_otherSurveyData  <- read_excel("SHSII_HPlasma_ConfirmInventory_Out_2022.03.29_FULL_INVENTORY_withDemographics.xlsx")
 
+##########       File Output       ##########
+# Set variables that will be used to automate filename generation
+name_initials <- "KRF"
+today <- format(Sys.Date(), "%d%m%Y")
+# List of the base name for the output files
+outfiles <- c("listIDs_excludedSHSph2", "SHSph2_fullDF", 
+              "SHSph2_NMRwSurveyDF_clean", "SHSph2_IDs_clean")
+# Set the output filenames 
+excl_filename = paste0(outfiles[1], "_", today, name_initials, ".csv")
+full_filename = paste0(outfiles[2], "_", today, name_initials, ".csv")
+clean_filename = paste0(outfiles[3], today, name_initials, ".csv")
+cleanIDs_filename = paste0(outfiles[4], today, name_initials, ".csv")
+
+##########    Curate NMR Dataset     ##########
 t_allSamplesMetabolites <- data.frame( # new df, indexed by by idNo, with columns:
   idNo = numeric(),
   logNMR = numeric(),
@@ -64,7 +85,7 @@ for (each in 1:nrow(t_calcConcData)) { #5327
   if (is.na(extracted_digits)) {
     this_id <- each
     t_funkNames <- rbind(t_funkNames,this_id)
-    print(" not named within 6-digit SHS idenitifier parameters")
+    #print(" not named within 6-digit SHS idenitifier parameters")
   }
   else {                      
     t_allSamplesMetabolites <- rbind(t_allSamplesMetabolites, list(
@@ -187,6 +208,7 @@ for (ctr in control_samples){
 t_allSamples <- left_join(t_allSamples, t_SHSph1_rawSurveyData, by = c("idNo" = "IDNO"))  
 t_allSamples <- left_join(t_allSamples, t_SHSph2_rawSurveyData, by = c("idNo" = "IDNO"))  
 t_allSamples <- left_join(t_allSamples, t_ph1and2_rawSmokingSurveyData, by = c("idNo" = "IDNO"))  
+t_allSamples <- left_join(t_allSamples, SHSph1_age, by = c("idNo"="IDNO"))
 ### t_allSamples ### use t_allSamples as the master (all variables all samples dataframe, post-QC, after specific exclusions)
 
 ##########       Clean Variable Determination       ##########
@@ -197,36 +219,35 @@ t_allSamples["BMIcalc"] <- ""
 t_allSamples["BMIcategory"] <- ""
 t_allSamples["b_isControl"] <- ""
 t_allSamples["NMR_category"] <- ""
+t_allSamples["S2AGE"] <- ""
 
 ## "b_isControl"
 ###############################################################
 t_allSamples <- t_allSamples  %>% 
-                  mutate(b_isControl = elseif(idNo==control_samples, 1, 0))
+                  mutate(b_isControl = ifelse(idNo %in% control_samples, 1, 0))
 
 ## BMI variables: "BMIcalc" and "BMIcategory"
 ## According to CDC, BMI = weight [kg] / (height [m])^2 *10000[cm/m]
 # Function to calculate BMI
 calculate_bmi <- function(weight_kg, height_cm) {
-  bmi <- weight_kg / (height_cm^2)*10000 # Calculate BMI
+  bmi <- as.numeric(weight_kg) / ((as.numeric(height_cm)^2)*10000) # Calculate BMI
   return(bmi) # Return the result
 }
 
 # Calculate BMI for all samples
-for (s in 1:nrow(t_allSamples)) {
-  this_height_cm <- t_allSamples[s,"EX2_7"]
-  this_weight_kg <- t_allSamples[s,"EX2_8"]
-  calcBMI <- calculate_bmi(this_weight_kg,this_height_cm)
-  t_allSamples[s,"BMIcalc"]= as.numeric(calcBMI)
-}
+t_allSamples <- t_allSamples  %>% 
+                  mutate(BMIcalc = calculate_bmi(EX2_7, EX2_8))
+
 # Categorize continuous BMI values
-for (s in 1:nrow(t_allSamples)) {
-  this_BMI <- t_allSamples[s,"BMIcalc"]
-  if (is.na(this_BMI)) next
-  else if (this_BMI < 25.0) { t_allSamples[s,"BMIcategory"] <- "Underweight/Healthy"}
-  else if (this_BMI >= 25.0 & this_BMI < 30.0 ) { t_allSamples[s,"BMIcategory"] <- "Overweight"}
-  else if (this_BMI >= 30.0 ) { t_allSamples[s,"BMIcategory"] <- "Obese"}
-  else {print("Error fitting BMI into categories")}
-}
+t_allSamples <- t_allSamples %>%
+  mutate(
+    BMIcategory = case_when(
+      is.na(BMIcalc) ~ NA_character_,
+      BMIcalc < 25.0 ~ "Underweight/Healthy",
+      BMIcalc >= 25 & BMIcalc < 30 ~ "Overweight",
+      BMIcalc >= 30 ~ "Obese"
+    )
+  )
 
 #"b_SmokerStatus"
 ###############################################################
@@ -266,6 +287,16 @@ for (s in 1:nrow(t_allSamples)) {
   }
 }
 
+## "S2age"
+###############################################################
+t_allSamples <- t_allSamples  %>% 
+                  mutate(S1EXDATE = as.Date(S1EXDATE.x),
+                        S2EXDATE = as.Date(S2EXDATE.x),
+                        delta_time_yrs = as.numeric(difftime(S2EXDATE, S1EXDATE, units="days"))/ 365.25,
+                        S2AGE = round(S1AGE + delta_time_yrs, digits=1))
+
+
+
 ## "b_Gender"
 ###############################################################
 ## from phase 1 survey, gender (1=male, 2=female) is "INT2_1"
@@ -302,9 +333,9 @@ for (s in 1:nrow(t_allSamples)) {
 ##########       Specific Exclusions      ##########
 ## Exclude samples with missing data for BMI, age, gender, or CPD information since complete data set for these variables is needed for GWAS/EWAS analysis
 # missing BMI
-excluded_smokers_naBMI <- subset(t_allSamples,is.na(t_allSamples$BMI_calc)) #BW controls + 2 smokers: 103154,103554
+excluded_smokers_naBMI <- subset(t_allSamples,is.na(t_allSamples$BMIcalc)) #BW controls + 2 smokers: 103154,103554
 # missing age
-excluded_smokers_naAge <- subset(t_allSamples,is.na(t_allSamples$AgeAtPhase2)) #none found
+excluded_smokers_naAge <- subset(t_allSamples,is.na(t_allSamples$S2AGE)) # 2 smokers: 203292, 303493
 # missing gender
 excluded_smokers_naGender <- subset(t_allSamples,is.na(t_allSamples$b_Gender)) #none found
 
@@ -319,7 +350,7 @@ excluded_nonSmokers_wNMR <- subset(sub_nonSmokers, (sub_nonSmokers$logNMR<0)) ##
 sub_smokers_naCPD <- subset(sub_smokers,is.na(sub_smokers$INT22_5)) # 13 found, not excluding for now
 
 # Specified Exclusions Made
-sample_exclusions <- c("202642", "202699", "103154", "103554"
+sample_exclusions <- c("202642", "202699", "103154", "103554",
                         "2720", "3348", "3955", "5829")
 t_allSamples_postExclusions <- t_allSamples
 t_allSamples_postExclusions <- t_allSamples_postExclusions[!t_allSamples_postExclusions$idNo %in% sample_exclusions,] 
@@ -328,18 +359,19 @@ t_allSamples_postExclusions <- t_allSamples_postExclusions[!t_allSamples_postExc
 # Outputs: NMR dataframe, list of excluded ids for requesting more plasma to re-run,A list of excluded sample ids to request SHS for more plasma to re-run assay
 allExcluded_list <- anti_join(t_allSamples,t_allSamples_postExclusions,by = c("idNo" = "idNo")) # results in 8
 # TODO: join with samples on my rerun list .xlsx
-write.csv(allExcluded_list, file = "listIDs_excludedSHSph2_05152024CRM.csv", row.names = TRUE)
-print("Successfully output all excluded sample IDs list as listIDs_excludedSHSph2_05152024CRM.csv")
+write.csv(allExcluded_list, file = excl_filename, row.names = TRUE)
+cat("Successfully output all excluded sample IDs list as: ", excl_filename)
 # Output: A list of all combined results for all 824 samples; t_allSamples_postExclusions, file = "SHSph2_fullDF_05152024CRM.csv"
-write.csv(t_allSamples_postExclusions, file = "SHSph2_fullDF_05152024CRM.csv", row.names = TRUE)
-print("Successfully output t_allSamples_postExclusions as SHSph2_fullDF_05152024CRM.csv")
+write.csv(t_allSamples_postExclusions, file = full_filename, row.names = TRUE)
+cat("Successfully output t_allSamples_postExclusions as: " full_filename)
 # Output: A "clean" dataset for EWAS/GWAS; clean_df, file = "SHSph2_NMRwSurveyDF_clean05152024CRM.csv"        # interpreted data from survey, see logic in UML diagram (Supplementary Figure 2)
 clean_df <-t_allSamples_postExclusions  %>% 
             dplyr::select(idNo, NMRcalc, logNMR, COTconc, tHCconc, NICconc,  # data from LC-MS and NMR calcs
-            CENTER.y, S2EXDATE.x, S2SMOKE, S2SMKD, S2PPY,b_SmokerStatus, # data from raw survey variables
-            b_Gender, BMI_calc, BMIcategory, b_isControl)
-write.csv(clean_df, file = "SHSph2_NMRwSurveyDF_clean05152024CRM.csv", row.names = TRUE)
-print("Successfully output clean_df as SHSph2_NMRwSurveyDF_clean05152024CRM.csv")
+            CENTER.y, S2EXDATE, S2SMOKE, S2SMKD, S2PPY, b_SmokerStatus, # data from raw survey variables
+            S2AGE, b_Gender, BMIcalc, BMIcategory, b_isControl)  %>% 
+            rename("CENTER.y" = "CENTER") # remove the '.y' for convenience
+write.csv(clean_df, file = clean_filename, row.names = TRUE)
+cat("Successfully output clean_df as: ", clean_filename)
 # Output: just sampleIDs of 816 participants; clean_df$idNo, file = "SHSph2_IDs_clean05152024CRM.csv"
-write.csv(clean_df$idNo, file = "SHSph2_IDs_clean05152024CRM.csv", row.names = TRUE)
-print("Successfully output sample IDs for clean_df as SHSph2_IDs_clean05152024CRM.csv")
+write.csv(clean_df$idNo, file = cleanIDs_filename, row.names = TRUE)
+cat("Successfully output sample IDs for clean_df as: ", cleanIDs_filename)
