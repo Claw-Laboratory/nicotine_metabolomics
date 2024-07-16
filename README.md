@@ -14,10 +14,12 @@ Combine quantified  LC/MS nicotine metabolite data with phase survey self-report
 Data dictionaries (Supplementary File 1)
 "Clean" variable consensus/logic UML (Supplementary File 2)
 
-## REQUIRED INPUTS: 4
-1) combined experimental LC-MS/MS calculated and QC'd data in [ng/mL] serum concentrations for: , Cotinine, 3-hyroxy-Cotinine, Nicotine, CO, NO, Nornicotine (in this order)      --->   "v6RawData_combined.csv"
-2, 3) cohort survey results with associated data dictionary for interpretation                                                                                                 ---> "phase2.xlsx" and "smoking.xlsx"
-4) phase I survey results with associated data dictionary for interpretating age, gender, smoking histotry, height, weight                                                  ---> "phase1.xlsx"
+## REQUIRED INPUTS: 5
+1) **v6RawData_combined.csv** : combined experimental LC-MS/MS calculated and QC'd data in [ng/mL] serum concentrations for: , Cotinine, 3-hyroxy-Cotinine, Nicotine, CO, NO, Nornicotine (in this order)
+2) **phase2.xlsx** : cohort survey results with associated data dictionary for interpretation  
+3) **smoking.xlsx** : dataset with relevant smoking-related phenotypes not included in file 2
+4) **phase1.xlsx** : phase I survey results with associated data dictionary for gender, smoking histotry, height, weight
+5) **shs677_elig.sas7bdat** : age at phase 1
 
 ## OUTPUT FILES GENERATED: 
 1) A list of all combined results for all 824 samples; t_allSamples_postExclusions, file = "SHSph2_fullDF_05152024CRM.csv"
