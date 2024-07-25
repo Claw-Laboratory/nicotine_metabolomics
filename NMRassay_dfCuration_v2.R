@@ -27,7 +27,7 @@
 
 ##########       Setup       ##########
 # Set working directory (the location with the necessary input files)
-setwd("/home/clawlab/Projects/SHS")
+setwd("/Users/musserc/NicotineMetabolomics_project")
 
 # Install packages if not installed
 if(!"dplyr" %in% installed.packages()) install.packages("dplyr")
@@ -49,11 +49,13 @@ t_SHSph1_rawSurveyData  <- read_excel("phase1.xlsx") ## contains gender, birthda
 t_SHSph2_rawSurveyData  <- read_excel("phase2.xlsx") ##date plasma drawn,smoked now, smoked within 4 hours
 t_ph1and2_rawSmokingSurveyData <- read_excel("smoking.xlsx") ## S1SMOKE, S1SMKD, S1PPY, S2SMOKE, S2SMKD, S2PPY
 SHSph1_age <- read_sas("shs677_elig.sas7bdat") # S1AGE
+t_haplotypes <- read_excel("pypgx_cyp2a6_cs_20240524.xlsx")
+t_haplotypeScoring <- read_excel("AlleleActivityScoring.xlsx", sheet="Sheet2")
 # this is Teddy's script for survey df: #t_otherSurveyData  <- read_excel("SHSII_HPlasma_ConfirmInventory_Out_2022.03.29_FULL_INVENTORY_withDemographics.xlsx")
 
 ##########       File Output       ##########
 # Set variables that will be used to automate filename generation
-name_initials <- "KRF"
+name_initials <- "CRM"
 today <- format(Sys.Date(), "%Y%m%d")
 # List of the base name for the output files
 outfiles <- c("listIDs_excludedSHSph2", "SHSph2_fullDF", 
@@ -101,6 +103,7 @@ for (each in 1:nrow(t_calcConcData)) { #5327
   }
 # print(paste(t_calcConcData$SampleID[each], "extracted: ", extracted_digits)) # Print the result. 
 }
+#TODO: write in a check that there's not data being overwritten for that sample's concentration variable (ie reruns in the same file), handle how?
 # Remove duplicates by keeping the first occurrence of each set of duplicates in the data frame, and remove the subsequent ones.
 t_allSamplesMetabolites <- t_allSamplesMetabolites[!duplicated(t_allSamplesMetabolites), ]
 
@@ -119,7 +122,6 @@ t_calcConcData[4015:4536,"Set"] <- "H"  # "OUTPUT_3.23.23.csv"
 t_calcConcData[4537:5058,"Set"] <- "I"  # "OUTPUT_4.11.23.csv"
 t_calcConcData[5059:5532,"Set"] <- "J"  # "OUTPUT_4.18.23.csv"
 
-#TODO: write in a check that there's not data being overwritten for that sample's concentration variable (ie reruns in the same file), handle how?
 
 # Add data from LC/MS-MS raw analyte concentration data
 # For each of the valid samples to be anlayzed, find that sample's object, set it's validity flag to true, set the sample's experimentally determined  plasma metabolite concentration values, and add to a working object list for analysis
@@ -207,9 +209,10 @@ for (ctr in control_samples){
 # Join subsetted raw survey data as columns to sample ID rows
 t_allSamples <- left_join(t_allSamples, t_SHSph1_rawSurveyData, by = c("idNo" = "IDNO"))  
 t_allSamples <- left_join(t_allSamples, t_SHSph2_rawSurveyData, by = c("idNo" = "IDNO"))  
-t_allSamples <- left_join(t_allSamples, t_ph1and2_rawSmokingSurveyData, by = c("idNo" = "IDNO"))  
-t_allSamples <- left_join(t_allSamples, SHSph1_age, by = c("idNo"="IDNO"))
-### t_allSamples ### use t_allSamples as the master (all variables all samples dataframe, post-QC, after specific exclusions)
+t_allSamples1 <- left_join(t_allSamples, t_ph1and2_rawSmokingSurveyData, by = c("idNo" = "IDNO"))  
+t_allSamples1 <- left_join(t_allSamples1, SHSph1_age, by = c("idNo"="IDNO"))
+t_allSamples <- right_join(t_allSamples1, t_haplotypes, by = c("idNo" = "ID"))
+### t_allSamples ### use t_allSamples as the master DF for later use (all variables all samples dataframe, post-QC, after specific exclusions)
 
 ##########       Clean Variable Determination       ##########
 # add supplementary columns for inferred data, interpreted using data dictionaries (Supplementary 1)
@@ -220,37 +223,21 @@ t_allSamples["BMIcategory"] <- ""
 t_allSamples["b_isControl"] <- ""
 t_allSamples["NMR_category"] <- ""
 t_allSamples["S2AGE"] <- ""
+t_allSamples["AgeCategory"] <- ""
+t_allSamples["DiplotypeActScore"] <- ""
+t_allSamples["Diplo_phenotype"] <- ""
 
-## "b_isControl"
-###############################################################
-t_allSamples <- t_allSamples  %>% 
-                  mutate(b_isControl = ifelse(idNo %in% control_samples, 1, 0))
-
-## BMI variables: "BMIcalc" and "BMIcategory"
-## According to CDC, BMI = weight [kg] / (height [m])^2 *10000[cm/m]
-# Function to calculate BMI
-calculate_bmi <- function(weight_kg, height_cm) {
-  bmi <- as.numeric(weight_kg) / ((as.numeric(height_cm)^2)*10000) # Calculate BMI
-  return(bmi) # Return the result
-}
-
-# Calculate BMI for all samples
-t_allSamples <- t_allSamples  %>% 
-                  mutate(BMIcalc = calculate_bmi(EX2_7, EX2_8))
-
-# Categorize continuous BMI values
+## Clean haplotype data so 'df' will have the ';' removed from all strings in the 'Haplotype1' and 'Haplotype2' column
 t_allSamples <- t_allSamples %>%
-  mutate(
-    BMIcategory = case_when(
-      is.na(BMIcalc) ~ NA_character_,
-      BMIcalc < 25.0 ~ "Underweight/Healthy",
-      BMIcalc >= 25 & BMIcalc < 30 ~ "Overweight",
-      BMIcalc >= 30 ~ "Obese"
-    )
-  )
+  mutate(Haplotype1 = str_replace_all(Haplotype1, ";", ""))
+t_allSamples <- t_allSamples %>%
+  mutate(Haplotype2 = str_replace_all(Haplotype2, ";", ""))
+#remove gibberish column "AlternativePhase" from PyPGx output
+t_allSamples <- t_allSamples %>%
+  select(-AlternativePhase)
 
-#"b_SmokerStatus"
-###############################################################
+
+##########       "b_isControl"     ##########
 ## Determining smoker status per logic table made upon consensus (w/ KF, CS)
 t_allSamples <- t_allSamples  %>% 
                   mutate(selfDeclaredSmoker = INT22_4,
@@ -287,8 +274,7 @@ for (s in 1:nrow(t_allSamples)) {
   }
 }
 
-## "S2age"
-###############################################################
+##########       "S2age"         ##########       
 t_allSamples <- t_allSamples  %>% 
                   mutate(S1EXDATE = as.Date(S1EXDATE.x),
                         S2EXDATE = as.Date(S2EXDATE.x),
@@ -297,8 +283,7 @@ t_allSamples <- t_allSamples  %>%
 
 
 
-## "b_Gender"
-###############################################################
+##########      "b_Gender"    ###############
 ## from phase 1 survey, gender (1=male, 2=female) is "INT2_1"
 ex_NAgender <- data.frame()
 for (s in 1:nrow(t_allSamples)) {
@@ -309,11 +294,22 @@ for (s in 1:nrow(t_allSamples)) {
   else print("Error processing gender for ",t_allSamples$idNo[s])
 }
 
-##Calculated summary of gender:mean NMRs
-t_allSamples %>%
-  group_by(b_Gender) %>%
-  summarise(gender_avgNMR = mean(NMRcalc,na.rm = TRUE),
-    gender_stdDedvNMR = sd(NMRcalc, na.rm=TRUE))
+#########       "AgeCategory"   #############
+## defined younger or older stratifications compared to overall average age
+mean_age <- mean(as.double(t_allSamples$AgeAtPhase2), na.rm=TRUE)
+for (s in 1:nrow(t_allSamples)) {
+  # Check if t_allSamples[s,"AgeAtPhase2"] is NULL or empty
+  if (is.null(t_allSamples[s,"AgeAtPhase2"]) || t_allSamples[s,"AgeAtPhase2"] == "") {next}  # Skip this iteration
+  this_age <- as.double(t_allSamples[s,"AgeAtPhase2"])
+  this_ageBoolean <- (this_age <= mean_age)
+  if (this_ageBoolean == TRUE) {
+    print(this_age)
+    t_allSamples[s,"AgeCategory"] <- "Younger"    
+  } else {
+    t_allSamples[s,"AgeCategory"] <- "Older"
+  }
+}
+
 
 #NMR metabolizer categories:NMRcategory can be high or low,
 # high: "logNMR" >= -0.31
@@ -329,6 +325,44 @@ for (s in 1:nrow(t_allSamples)) {
   else if (this_logNMR>= -0.31) {t_allSamples$NMR_category[s]="high"}
   else t_allSamples$NMR_category[s]="low"
 }
+
+
+####### Haplotype Scoring Algorithm #######
+#tidyverse 
+#remove samples with na haplotypes
+for (each in 1:nrow(t_allSamples)) { 
+  this_diplotype_score <- ""
+  this_haplotype1 <- t_allSamples[each, "Haplotype1"]
+  this_haplotype2 <- t_allSamples[each, "Haplotype2"]
+  this_hap1_score <- ""
+  this_hap2_score <- ""
+  if (is.na(this_haplotype1)) {this_hap1_score <- as.double(0)}
+  if (!is.na(this_haplotype1)) {
+    this_hap1_score <- as.numeric(t_haplotypeScoring[t_haplotypeScoring$Haplotype == this_haplotype1,"Phenotype Activity Score"])#; print(this_hap1_score)
+    #lookup translated score for haplotype 1
+    this_hap2_score <- as.numeric(t_haplotypeScoring[t_haplotypeScoring$Haplotype == this_haplotype2,"Phenotype Activity Score"])#; print(this_hap2_score)
+    this_diplotype_score <- as.double(this_hap1_score + this_hap2_score); print(this_diplotype_score)
+    t_allSamples[each,"DiplotypeActScore"] <- as.numeric(this_diplotype_score)
+  } else {print(t_allSamples[each,"IDNO"])}
+}
+sumTab1 <- table(t_allSamples$Haplotype1); print(sumTab1)
+sumTab2 <- table(t_allSamples$Haplotype2); print(sumTab2)
+sumTabl3 <- table(t_allSamples$DiplotypeActScore); print(sumTabl3)
+
+# Diplotype phenotype categories
+#poor (activity score = 0), slow (activity score >0 to =<1), intermediate (activity score >1 to =<2), normal (activity score 2 to <3), and fast (activity score ≥3)
+t_allSamples <- left_join(t_allSamples, (t_allSamples %>%
+                                       select(idNo,DiplotypeActScore,Diplo_phenotype) %>%
+                                       dplyr::mutate(Diplo_phenotype = case_when(
+                                         DiplotypeActScore == 0 ~ "poor",
+                                         DiplotypeActScore > 0 & DiplotypeActScore <= 1 ~ "slow",
+                                         DiplotypeActScore > 1 & DiplotypeActScore < 2 ~ "intermediate",
+                                         DiplotypeActScore >= 2 & DiplotypeActScore < 3 ~ "normal",
+                                         DiplotypeActScore >= 3 ~ "fast",
+                                         TRUE ~ NA_character_
+                                       ))), by = "idNo"
+)
+
 
 ##########       Specific Exclusions      ##########
 ## Exclude samples with missing data for BMI, age, gender, or CPD information since complete data set for these variables is needed for GWAS/EWAS analysis
@@ -350,21 +384,23 @@ excluded_nonSmokers_wNMR <- subset(sub_nonSmokers, (sub_nonSmokers$logNMR<0)) ##
 sub_smokers_naCPD <- subset(sub_smokers,is.na(sub_smokers$INT22_5)) # 13 found, not excluding for now
 
 # Specified Exclusions Made
-sample_exclusions <- c("202642", "202699", "103154", "103554",
-                        "2720", "3348", "3955", "5829")
+sample_exclusions <- c("202642", "202699", "103154", "103554", #had na BMI or were non-smokers s/ NMR
+                        "2720", "3348", "3955", "5829")         #BW controls
 t_allSamples_postExclusions <- t_allSamples
 t_allSamples_postExclusions <- t_allSamples_postExclusions[!t_allSamples_postExclusions$idNo %in% sample_exclusions,] 
 
+t_allSamples_postExclusions$idNo
 ##########       Output       ##########
 # Outputs: NMR dataframe, list of excluded ids for requesting more plasma to re-run,A list of excluded sample ids to request SHS for more plasma to re-run assay
-allExcluded_list <- anti_join(t_allSamples,t_allSamples_postExclusions,by = c("idNo" = "idNo")) # results in 8
+#allExcluded_list <- anti_join(t_allSamples,t_allSamples_postExclusions,by = c("idNo" = "idNo")) # results in 8
 # TODO: join with samples on my rerun list .xlsx
-write.csv(allExcluded_list, file = excl_filename, row.names = TRUE)
-cat("Successfully output all excluded sample IDs list as: ", excl_filename, "\n")
+#write.csv(allExcluded_list, file = excl_filename, row.names = TRUE)
+#cat("Successfully output all excluded sample IDs list as: ", excl_filename, "\n")
 # Output: A list of all combined results for all 824 samples; t_allSamples_postExclusions, file = "SHSph2_fullDF"
-write.csv(t_allSamples_postExclusions, file = full_filename, row.names = TRUE)
-cat(paste0("Successfully output t_allSamples_postExclusions as: ", full_filename, "\n"))
+#write.csv(t_allSamples_postExclusions, file = full_filename, row.names = TRUE)
+#cat(paste0("Successfully output t_allSamples_postExclusions as: ", full_filename, "\n"))
 # Output: A "clean" dataset for EWAS/GWAS; clean_df, file = "SHSph2_NMRwSurveyDF_clean"        # interpreted data from survey, see logic in UML diagram (Supplementary Figure 2)
+t_allSamples_postExclusions$idNo
 clean_df <-t_allSamples_postExclusions  %>% 
             dplyr::select(idNo, NMRcalc, logNMR, COTconc, tHCconc, NICconc,  # data from LC-MS and NMR calcs
             CENTER.y, S2EXDATE, S2SMOKE, S2SMKD, S2PPY, b_SmokerStatus, # data from raw survey variables
@@ -373,5 +409,5 @@ clean_df <-t_allSamples_postExclusions  %>%
 write.csv(clean_df, file = clean_filename, row.names = TRUE)
 cat(paste0("Successfully output clean_df as: ", clean_filename, "\n"))
 # Output: just sampleIDs of 816 participants; clean_df$idNo, file = "SHSph2_IDs_clean"
-write.csv(clean_df$idNo, file = cleanIDs_filename, row.names = TRUE)
-cat(paste0("Successfully output sample IDs for clean_df as: ", cleanIDs_filename))
+#write.csv(clean_df$idNo, file = cleanIDs_filename, row.names = TRUE)
+#cat(paste0("Successfully output sample IDs for clean_df as: ", cleanIDs_filename))
