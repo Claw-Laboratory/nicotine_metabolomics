@@ -7,7 +7,7 @@ Combine quantified  LC/MS nicotine metabolite data with phase survey self-report
 
 ## OBJECTS:
 "t_allSamplesMetabolites" for curated nicotine metabolite dataset
-"t_allSamples" as the master (all variables all samples dataframe, post-QC, after specific exclusions)
+"t_allSamples_postExclusions" as the master (all variables all samples dataframe, post-QC, after specific exclusions)
 "clean_df" as the finalized, shared dataset, 18 variables, n=816 (inc. 28 controls)
 
 ## SUPPLEMENTARY FILES to this script: 
@@ -20,6 +20,8 @@ Data dictionaries (Supplementary File 1)
 3) **smoking.xlsx** : dataset with relevant smoking-related phenotypes not included in file 2
 4) **phase1.xlsx** : phase I survey results with associated data dictionary for gender, smoking histotry, height, weight
 5) **shs677_elig.sas7bdat** : age at phase 1
+6) **AlleleActivityScoring.xlsx** : CYP2A6 haplotype variant activity score reference table
+7) **pypgx_cyp2a6_cs_20240524.xlsx** : @CarissaSherman's PyPGx output dataset for SHS ph2 cohort
 
 ## OUTPUT FILES GENERATED: 
 1) A list of all combined results for all 824 samples; t_allSamples_postExclusions, file = "SHSph2_fullDF_05152024CRM.csv"
@@ -28,7 +30,7 @@ Data dictionaries (Supplementary File 1)
 
 ## NOTE:
 - I'm bringing in calculated metabolic data using Kaja's data output from Teddy's script referencing Laura's library, and am assuming reported values pass QC
-- I intend on chaning the hardcoded bits into variables for scalability in a larger bioinformatic pipeline (dev in progress, 05/15/2024 CRM)
+
 ### This script: 
 Calculated metabolite concentration data > Dataframe curation Script > Data Cleaning Script 
 ### Connecting it from: 
@@ -38,4 +40,6 @@ Data Analysis Script > Figures & Tables Script
 
 ## STILL TO DO:
 1) write in a check that there's not data being overwritten for that sample's concentration variable (ie reruns in the same file), handle this how?
-2) join with samples on my rerun list .xlsx
+2) generate a NMR assay rerun sample list and connect data back in
+3) generate a sample list for phase 3 sample IDs
+   
