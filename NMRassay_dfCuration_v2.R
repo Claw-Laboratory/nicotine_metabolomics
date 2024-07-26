@@ -204,7 +204,9 @@ control_samples <- c("103006", "102041", "102167", "103672", "202748",
 for (ctr in control_samples){
   t_allSamples[t_allSamples$idNo==ctr, "NMRcalc"] <- as.numeric(0)
 }
-
+for (ctr in control_samples){
+  t_allSamples[t_allSamples$idNo==ctr, "NMRcalc"] <- as.numeric(0)
+}
 ##########       Join Data Sets       ##########
 # Join subsetted raw survey data as columns to sample ID rows
 t_allSamples <- left_join(t_allSamples, t_SHSph1_rawSurveyData, by = c("idNo" = "IDNO"))  
@@ -238,6 +240,11 @@ t_allSamples <- t_allSamples %>%
 
 
 ##########       "b_isControl"     ##########
+control_samples
+#for each control in "control_samples" mutate t_allSamples$b_isControl to = "cntrl"
+t_allSamples <- t_allSamples %>%
+  mutate(b_isControl = ifelse(idNo %in% control_samples, "cntrl","samp"))
+
 ## Determining smoker status per logic table made upon consensus (w/ KF, CS)
 t_allSamples <- t_allSamples  %>% 
                   mutate(selfDeclaredSmoker = INT22_4,
@@ -310,6 +317,28 @@ for (s in 1:nrow(t_allSamples)) {
   }
 }
 
+#########       "BMIcalc"   #############
+## According to CDC, BMI = weight [kg] / (height [m])^2 *10000[cm/m]
+calculate_bmi <- function(weight_kg, height_cm) {
+  bmi <- weight_kg / (height_cm^2)*10000 # Calculate BMI
+  return(bmi) # Return the result
+}
+for (s in 1:nrow(t_allSamples)) {
+  this_height_cm <- t_allSamples[s,"EX2_7"]
+  this_weight_kg <- t_allSamples[s,"EX2_8"]
+  calcBMI <- calculate_bmi(this_weight_kg,this_height_cm)
+  t_allSamples[s,"BMIcalc"]= as.numeric(calcBMI)
+}
+for (s in 1:nrow(t_allSamples)) {
+  this_BMI <- t_allSamples[s,"BMIcalc"]
+  if (is.na(this_BMI)) next
+  else if (this_BMI < 25.0) { t_allSamples[s,"BMIcategory"] <- "Underweight/Healthy"}
+  else if (this_BMI >= 25.0 & this_BMI < 30.0 ) { t_allSamples[s,"BMIcategory"] <- "Overweight"}
+  else if (this_BMI >= 30.0 ) { t_allSamples[s,"BMIcategory"] <- "Obese"}
+  else {print("Error fitting BMI into categories")}
+}
+
+#########       "BMIcategory"   #############
 
 #NMR metabolizer categories:NMRcategory can be high or low,
 # high: "logNMR" >= -0.31
@@ -389,7 +418,6 @@ sample_exclusions <- c("202642", "202699", "103154", "103554", #had na BMI or we
 t_allSamples_postExclusions <- t_allSamples
 t_allSamples_postExclusions <- t_allSamples_postExclusions[!t_allSamples_postExclusions$idNo %in% sample_exclusions,] 
 
-t_allSamples_postExclusions$idNo
 ##########       Output       ##########
 # Outputs: NMR dataframe, list of excluded ids for requesting more plasma to re-run,A list of excluded sample ids to request SHS for more plasma to re-run assay
 #allExcluded_list <- anti_join(t_allSamples,t_allSamples_postExclusions,by = c("idNo" = "idNo")) # results in 8
@@ -400,12 +428,15 @@ t_allSamples_postExclusions$idNo
 #write.csv(t_allSamples_postExclusions, file = full_filename, row.names = TRUE)
 #cat(paste0("Successfully output t_allSamples_postExclusions as: ", full_filename, "\n"))
 # Output: A "clean" dataset for EWAS/GWAS; clean_df, file = "SHSph2_NMRwSurveyDF_clean"        # interpreted data from survey, see logic in UML diagram (Supplementary Figure 2)
-t_allSamples_postExclusions$idNo
+
 clean_df <-t_allSamples_postExclusions  %>% 
-            dplyr::select(idNo, NMRcalc, logNMR, COTconc, tHCconc, NICconc,  # data from LC-MS and NMR calcs
+            dplyr::select(idNo, b_isControl, NMRcalc, logNMR, COTconc, tHCconc, NICconc,  # data from LC-MS and NMR calcs
             CENTER.y, S2EXDATE, S2SMOKE, S2SMKD, S2PPY, b_SmokerStatus, # data from raw survey variables
-            S2AGE, b_Gender, BMIcalc, BMIcategory, b_isControl)  %>% 
-            rename("CENTER" = "CENTER.y") # remove the '.y' for convenience
+            S2AGE, b_Gender, BMIcalc, BMIcategory,
+            Genotype, Haplotype1, Haplotype2, DiplotypeActScore.y, Diplo_phenotype.y)  %>% 
+            rename("CENTER" = "CENTER.y") %>%  # remove the '.y' for convenience 
+            rename("DiplotypeActivityScore" = "DiplotypeActScore.y") %>%
+            rename("MetabolizerPhenotype" = "Diplo_phenotype.y")
 write.csv(clean_df, file = clean_filename, row.names = TRUE)
 cat(paste0("Successfully output clean_df as: ", clean_filename, "\n"))
 # Output: just sampleIDs of 816 participants; clean_df$idNo, file = "SHSph2_IDs_clean"
