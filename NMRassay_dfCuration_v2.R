@@ -431,7 +431,7 @@ t_allSamples_postExclusions <- t_allSamples_postExclusions[!t_allSamples_postExc
 
 clean_df <-t_allSamples_postExclusions  %>% 
             dplyr::select(idNo, b_isControl, NMRcalc, logNMR, COTconc, tHCconc, NICconc,  # data from LC-MS and NMR calcs
-            CENTER.y, S2EXDATE, S2SMOKE, S2SMKD, S2PPY, b_SmokerStatus, # data from raw survey variables
+            CENTER.y, S2EXDATE, S2SMOKE, S1SMKD, S2SMKD, S1PPY, S2PPY, cpd, b_SmokerStatus, # data from raw survey variables
             S2AGE, b_Gender, BMIcalc, BMIcategory,
             Genotype, Haplotype1, Haplotype2, DiplotypeActScore.y, Diplo_phenotype.y)  %>% 
             rename("CENTER" = "CENTER.y") %>%  # remove the '.y' for convenience 
